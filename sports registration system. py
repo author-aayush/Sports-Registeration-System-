@@ -1,0 +1,2145 @@
+import tkinter as tk
+from tkinter import ttk, messagebox
+import mysql.connector
+from mysql.connector import Error
+import re
+from datetime import date
+
+
+# ==========================================================
+# SPORTS MANAGEMENT SYSTEM
+# Python + Tkinter + MySQL
+# ==========================================================
+
+# ---------------- MySQL Configuration ----------------
+DB_HOST = "localhost"
+DB_USER = "root"
+DB_PASSWORD = "YOUR_MYSQL_PASSWORD"   # <-- Put your MySQL password
+DB_NAME = "sports_management"
+
+# ---------------- Application Login ----------------
+APP_USERNAME = "admin"
+APP_PASSWORD = "admin123"
+
+
+# ==========================================================
+# DATABASE FUNCTIONS
+# ==========================================================
+
+def get_server_connection():
+    return mysql.connector.connect(
+        host=DB_HOST,
+        user=DB_USER,
+        password=DB_PASSWORD
+    )
+
+
+def setup_database():
+    """
+    Creates the database and players table automatically.
+    """
+
+    conn = None
+    cursor = None
+
+    try:
+        conn = get_server_connection()
+        cursor = conn.cursor()
+
+        # CREATE DATABASE
+        cursor.execute(
+            f"CREATE DATABASE IF NOT EXISTS {DB_NAME}"
+        )
+
+        cursor.execute(
+            f"USE {DB_NAME}"
+        )
+
+        # CREATE TABLE
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS players (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                player_name VARCHAR(100) NOT NULL,
+                age INT NOT NULL,
+                gender VARCHAR(20) NOT NULL,
+                sport VARCHAR(50) NOT NULL,
+                category VARCHAR(50) NOT NULL,
+                phone VARCHAR(15) NOT NULL,
+                email VARCHAR(100) NOT NULL,
+                college VARCHAR(150) NOT NULL,
+                registration_date DATE NOT NULL
+            )
+        """)
+
+        conn.commit()
+
+        return True
+
+    except Error as e:
+
+        messagebox.showerror(
+            "MySQL Connection Error",
+            f"Could not connect to MySQL.\n\n{e}\n\n"
+            "Make sure MySQL Server is running and "
+            "check your MySQL password."
+        )
+
+        return False
+
+    finally:
+
+        if cursor:
+            cursor.close()
+
+        if conn:
+            conn.close()
+
+
+def get_db_connection():
+
+    return mysql.connector.connect(
+        host=DB_HOST,
+        user=DB_USER,
+        password=DB_PASSWORD,
+        database=DB_NAME
+    )
+
+
+# ==========================================================
+# VALIDATION FUNCTIONS
+# ==========================================================
+
+def valid_phone(phone):
+
+    return bool(
+        re.fullmatch(
+            r"[0-9]{10}",
+            phone
+        )
+    )
+
+
+def valid_email(email):
+
+    return bool(
+        re.fullmatch(
+            r"[^@\s]+@[^@\s]+\.[^@\s]+",
+            email
+        )
+    )
+
+
+def valid_age(age):
+
+    try:
+
+        age = int(age)
+
+        return 5 <= age <= 100
+
+    except ValueError:
+
+        return False
+
+
+# ==========================================================
+# MAIN APPLICATION
+# ==========================================================
+
+class SportsManagementSystem:
+
+    def __init__(self, root):
+
+        self.root = root
+
+        self.root.title(
+            "Sports Management System"
+        )
+
+        self.root.geometry(
+            "1150x720"
+        )
+
+        self.root.minsize(
+            1000,
+            650
+        )
+
+        self.selected_id = None
+
+        self.entries = {}
+
+        self.show_login()
+
+    # ======================================================
+    # CLEAR WINDOW
+    # ======================================================
+
+    def clear_root(self):
+
+        for widget in self.root.winfo_children():
+
+            widget.destroy()
+
+    # ======================================================
+    # LOGIN PAGE
+    # ======================================================
+
+    def show_login(self):
+
+        self.clear_root()
+
+        self.root.configure(
+            bg="#eef2f7"
+        )
+
+        card = tk.Frame(
+            self.root,
+            bg="white",
+            width=450,
+            height=470,
+            bd=1,
+            relief="solid"
+        )
+
+        card.place(
+            relx=0.5,
+            rely=0.5,
+            anchor="center"
+        )
+
+        card.pack_propagate(False)
+
+        tk.Label(
+            card,
+            text="SPORTS MANAGEMENT",
+            font=("Segoe UI", 23, "bold"),
+            bg="white",
+            fg="#17365d"
+        ).pack(
+            pady=(45, 5)
+        )
+
+        tk.Label(
+            card,
+            text="System Login",
+            font=("Segoe UI", 12),
+            bg="white",
+            fg="#666666"
+        ).pack(
+            pady=(0, 30)
+        )
+
+        tk.Label(
+            card,
+            text="Username",
+            font=("Segoe UI", 10, "bold"),
+            bg="white"
+        ).pack(
+            fill="x",
+            padx=60
+        )
+
+        self.login_username = tk.Entry(
+            card,
+            font=("Segoe UI", 11),
+            relief="solid",
+            bd=1
+        )
+
+        self.login_username.pack(
+            fill="x",
+            padx=60,
+            pady=(5, 18),
+            ipady=7
+        )
+
+        tk.Label(
+            card,
+            text="Password",
+            font=("Segoe UI", 10, "bold"),
+            bg="white"
+        ).pack(
+            fill="x",
+            padx=60
+        )
+
+        self.login_password = tk.Entry(
+            card,
+            show="*",
+            font=("Segoe UI", 11),
+            relief="solid",
+            bd=1
+        )
+
+        self.login_password.pack(
+            fill="x",
+            padx=60,
+            pady=(5, 25),
+            ipady=7
+        )
+
+        tk.Button(
+            card,
+            text="LOGIN",
+            command=self.login,
+            bg="#17365d",
+            fg="white",
+            font=("Segoe UI", 11, "bold"),
+            relief="flat",
+            cursor="hand2"
+        ).pack(
+            fill="x",
+            padx=60,
+            ipady=9
+        )
+
+        tk.Label(
+            card,
+            text="Demo: admin / admin123",
+            font=("Segoe UI", 9),
+            bg="white",
+            fg="#777777"
+        ).pack(
+            pady=18
+        )
+
+        self.login_username.focus_set()
+
+    # ======================================================
+    # LOGIN VALIDATION
+    # ======================================================
+
+    def login(self):
+
+        username = self.login_username.get().strip()
+
+        password = self.login_password.get()
+
+        if not username or not password:
+
+            messagebox.showwarning(
+                "Login",
+                "Please enter username and password."
+            )
+
+            return
+
+        if (
+            username == APP_USERNAME
+            and password == APP_PASSWORD
+        ):
+
+            if setup_database():
+
+                self.show_dashboard()
+
+        else:
+
+            messagebox.showerror(
+                "Login Failed",
+                "Invalid username or password."
+            )
+
+    # ======================================================
+    # DASHBOARD
+    # ======================================================
+
+    def show_dashboard(self):
+
+        self.clear_root()
+
+        self.root.configure(
+            bg="#eef2f7"
+        )
+
+        # ---------------- HEADER ----------------
+
+        header = tk.Frame(
+            self.root,
+            bg="#17365d",
+            height=75
+        )
+
+        header.pack(
+            fill="x"
+        )
+
+        header.pack_propagate(False)
+
+        tk.Label(
+            header,
+            text="SPORTS MANAGEMENT SYSTEM",
+            font=("Segoe UI", 20, "bold"),
+            bg="#17365d",
+            fg="white"
+        ).pack(
+            side="left",
+            padx=25,
+            pady=18
+        )
+
+        tk.Button(
+            header,
+            text="Logout",
+            command=self.logout,
+            bg="#b02a37",
+            fg="white",
+            font=("Segoe UI", 10, "bold"),
+            relief="flat",
+            cursor="hand2"
+        ).pack(
+            side="right",
+            padx=25,
+            pady=20,
+            ipadx=10
+        )
+
+        # ---------------- NAVIGATION ----------------
+
+        self.create_navigation()
+
+        # ---------------- CONTENT ----------------
+
+        content = tk.Frame(
+            self.root,
+            bg="#eef2f7"
+        )
+
+        content.pack(
+            fill="both",
+            expand=True,
+            padx=30,
+            pady=30
+        )
+
+        tk.Label(
+            content,
+            text="Dashboard",
+            font=("Segoe UI", 25, "bold"),
+            bg="#eef2f7",
+            fg="#17365d"
+        ).pack(
+            anchor="w"
+        )
+
+        tk.Label(
+            content,
+            text="Manage player registrations easily.",
+            font=("Segoe UI", 11),
+            bg="#eef2f7",
+            fg="#666666"
+        ).pack(
+            anchor="w",
+            pady=(3, 25)
+        )
+
+        # ---------------- STATISTICS ----------------
+
+        total_players, sports_count, male_count, female_count = (
+            self.get_stats()
+        )
+
+        stats = tk.Frame(
+            content,
+            bg="#eef2f7"
+        )
+
+        stats.pack(
+            fill="x"
+        )
+
+        self.stat_card(
+            stats,
+            "Total Players",
+            str(total_players),
+            0
+        )
+
+        self.stat_card(
+            stats,
+            "Sports",
+            str(sports_count),
+            1
+        )
+
+        self.stat_card(
+            stats,
+            "Male Players",
+            str(male_count),
+            2
+        )
+
+        self.stat_card(
+            stats,
+            "Female Players",
+            str(female_count),
+            3
+        )
+
+        # ---------------- QUICK ACTIONS ----------------
+
+        info = tk.Frame(
+            content,
+            bg="white",
+            bd=1,
+            relief="solid"
+        )
+
+        info.pack(
+            fill="both",
+            expand=True,
+            pady=30
+        )
+
+        tk.Label(
+            info,
+            text="Quick Actions",
+            font=("Segoe UI", 16, "bold"),
+            bg="white",
+            fg="#17365d"
+        ).pack(
+            anchor="w",
+            padx=25,
+            pady=(25, 15)
+        )
+
+        actions = tk.Frame(
+            info,
+            bg="white"
+        )
+
+        actions.pack(
+            anchor="w",
+            padx=25
+        )
+
+        buttons = [
+            ("+ Add Player", self.show_add),
+            ("View Players", self.show_view),
+            ("Search Player", self.show_search)
+        ]
+
+        for text, command in buttons:
+
+            tk.Button(
+                actions,
+                text=text,
+                command=command,
+                bg="#17365d",
+                fg="white",
+                font=("Segoe UI", 10, "bold"),
+                relief="flat",
+                cursor="hand2"
+            ).pack(
+                side="left",
+                padx=6,
+                ipadx=15,
+                ipady=9
+            )
+
+        tk.Label(
+            info,
+            text="Python + Tkinter + MySQL | Sports Registration Mini Project",
+            font=("Segoe UI", 10),
+            bg="white",
+            fg="#777777"
+        ).pack(
+            side="bottom",
+            pady=20
+        )
+
+    # ======================================================
+    # DASHBOARD STATISTICS
+    # ======================================================
+
+    def get_stats(self):
+
+        conn = None
+        cursor = None
+
+        try:
+
+            conn = get_db_connection()
+
+            cursor = conn.cursor()
+
+            # Total players
+            cursor.execute(
+                "SELECT COUNT(*) FROM players"
+            )
+
+            total_players = cursor.fetchone()[0]
+
+            # Different sports
+            cursor.execute(
+                "SELECT COUNT(DISTINCT sport) FROM players"
+            )
+
+            sports_count = cursor.fetchone()[0]
+
+            # Male
+            cursor.execute(
+                "SELECT COUNT(*) FROM players WHERE gender='Male'"
+            )
+
+            male_count = cursor.fetchone()[0]
+
+            # Female
+            cursor.execute(
+                "SELECT COUNT(*) FROM players WHERE gender='Female'"
+            )
+
+            female_count = cursor.fetchone()[0]
+
+            return (
+                total_players,
+                sports_count,
+                male_count,
+                female_count
+            )
+
+        except Error:
+
+            return 0, 0, 0, 0
+
+        finally:
+
+            if cursor:
+                cursor.close()
+
+            if conn:
+                conn.close()
+
+    def stat_card(
+        self,
+        parent,
+        title,
+        value,
+        column
+    ):
+
+        card = tk.Frame(
+            parent,
+            bg="white",
+            bd=1,
+            relief="solid",
+            height=110
+        )
+
+        card.grid(
+            row=0,
+            column=column,
+            padx=6,
+            sticky="nsew"
+        )
+
+        card.grid_propagate(False)
+
+        parent.columnconfigure(
+            column,
+            weight=1
+        )
+
+        tk.Label(
+            card,
+            text=title,
+            font=("Segoe UI", 10),
+            bg="white",
+            fg="#777777"
+        ).pack(
+            anchor="w",
+            padx=18,
+            pady=(17, 2)
+        )
+
+        tk.Label(
+            card,
+            text=value,
+            font=("Segoe UI", 20, "bold"),
+            bg="white",
+            fg="#17365d"
+        ).pack(
+            anchor="w",
+            padx=18
+        )
+
+    # ======================================================
+    # NAVIGATION
+    # ======================================================
+
+    def create_navigation(self):
+
+        nav = tk.Frame(
+            self.root,
+            bg="white",
+            height=55
+        )
+
+        nav.pack(
+            fill="x"
+        )
+
+        nav.pack_propagate(False)
+
+        buttons = [
+            ("Dashboard", self.show_dashboard),
+            ("Add Player", self.show_add),
+            ("View Players", self.show_view),
+            ("Search", self.show_search)
+        ]
+
+        for text, command in buttons:
+
+            tk.Button(
+                nav,
+                text=text,
+                command=command,
+                bg="white",
+                fg="#17365d",
+                font=("Segoe UI", 10, "bold"),
+                relief="flat",
+                cursor="hand2"
+            ).pack(
+                side="left",
+                padx=15,
+                pady=12
+            )
+
+    # ======================================================
+    # ADD / UPDATE FORM
+    # ======================================================
+
+    def create_form_page(
+        self,
+        title,
+        button_text,
+        button_command
+    ):
+
+        self.clear_root()
+
+        self.root.configure(
+            bg="#eef2f7"
+        )
+
+        # ---------------- HEADER ----------------
+
+        header = tk.Frame(
+            self.root,
+            bg="#17365d",
+            height=75
+        )
+
+        header.pack(
+            fill="x"
+        )
+
+        header.pack_propagate(False)
+
+        tk.Label(
+            header,
+            text="SPORTS MANAGEMENT SYSTEM",
+            font=("Segoe UI", 20, "bold"),
+            bg="#17365d",
+            fg="white"
+        ).pack(
+            side="left",
+            padx=25,
+            pady=18
+        )
+
+        tk.Button(
+            header,
+            text="Logout",
+            command=self.logout,
+            bg="#b02a37",
+            fg="white",
+            relief="flat"
+        ).pack(
+            side="right",
+            padx=25,
+            pady=20,
+            ipadx=10
+        )
+
+        self.create_navigation()
+
+        # ---------------- MAIN ----------------
+
+        main = tk.Frame(
+            self.root,
+            bg="#eef2f7"
+        )
+
+        main.pack(
+            fill="both",
+            expand=True,
+            padx=35,
+            pady=25
+        )
+
+        tk.Label(
+            main,
+            text=title,
+            font=("Segoe UI", 22, "bold"),
+            bg="#eef2f7",
+            fg="#17365d"
+        ).pack(
+            anchor="w",
+            pady=(0, 18)
+        )
+
+        form = tk.Frame(
+            main,
+            bg="white",
+            bd=1,
+            relief="solid"
+        )
+
+        form.pack(
+            fill="both",
+            expand=True
+        )
+
+        self.entries = {}
+
+        fields = [
+            ("Player Name", "player_name"),
+            ("Age", "age"),
+            ("Gender", "gender"),
+            ("Sport", "sport"),
+            ("Category", "category"),
+            ("Phone", "phone"),
+            ("Email", "email"),
+            ("College / School", "college"),
+            ("Registration Date", "registration_date")
+        ]
+
+        left = tk.Frame(
+            form,
+            bg="white"
+        )
+
+        left.pack(
+            side="left",
+            fill="both",
+            expand=True,
+            padx=(30, 15),
+            pady=25
+        )
+
+        right = tk.Frame(
+            form,
+            bg="white"
+        )
+
+        right.pack(
+            side="left",
+            fill="both",
+            expand=True,
+            padx=(15, 30),
+            pady=25
+        )
+
+        for i, (label, key) in enumerate(fields):
+
+            target = (
+                left
+                if i < 5
+                else right
+            )
+
+            tk.Label(
+                target,
+                text=label,
+                font=("Segoe UI", 10, "bold"),
+                bg="white"
+            ).pack(
+                fill="x",
+                pady=(3, 4)
+            )
+
+            # Gender = RadioButton
+            if key == "gender":
+
+                gender_frame = tk.Frame(
+                    target,
+                    bg="white"
+                )
+
+                gender_frame.pack(
+                    fill="x",
+                    pady=(0, 12)
+                )
+
+                self.gender_var = tk.StringVar()
+
+                tk.Radiobutton(
+                    gender_frame,
+                    text="Male",
+                    variable=self.gender_var,
+                    value="Male",
+                    bg="white"
+                ).pack(
+                    side="left"
+                )
+
+                tk.Radiobutton(
+                    gender_frame,
+                    text="Female",
+                    variable=self.gender_var,
+                    value="Female",
+                    bg="white"
+                ).pack(
+                    side="left",
+                    padx=10
+                )
+
+                tk.Radiobutton(
+                    gender_frame,
+                    text="Other",
+                    variable=self.gender_var,
+                    value="Other",
+                    bg="white"
+                ).pack(
+                    side="left"
+                )
+
+                self.entries[key] = gender_frame
+
+            # Sport = Combobox
+            elif key == "sport":
+
+                widget = ttk.Combobox(
+                    target,
+                    values=[
+                        "Cricket",
+                        "Football",
+                        "Basketball",
+                        "Volleyball",
+                        "Badminton",
+                        "Table Tennis",
+                        "Athletics",
+                        "Kabaddi",
+                        "Chess",
+                        "Other"
+                    ],
+                    state="readonly"
+                )
+
+                widget.pack(
+                    fill="x",
+                    ipady=7,
+                    pady=(0, 12)
+                )
+
+                self.entries[key] = widget
+
+            # Category = Combobox
+            elif key == "category":
+
+                widget = ttk.Combobox(
+                    target,
+                    values=[
+                        "Under 14",
+                        "Under 17",
+                        "Under 19",
+                        "Under 21",
+                        "Senior",
+                        "Open"
+                    ],
+                    state="readonly"
+                )
+
+                widget.pack(
+                    fill="x",
+                    ipady=7,
+                    pady=(0, 12)
+                )
+
+                self.entries[key] = widget
+
+            else:
+
+                widget = tk.Entry(
+                    target,
+                    font=("Segoe UI", 10),
+                    relief="solid",
+                    bd=1
+                )
+
+                widget.pack(
+                    fill="x",
+                    ipady=7,
+                    pady=(0, 12)
+                )
+
+                self.entries[key] = widget
+
+        # Default registration date
+        if "registration_date" in self.entries:
+
+            self.entries[
+                "registration_date"
+            ].insert(
+                0,
+                date.today().strftime("%Y-%m-%d")
+            )
+
+        # ---------------- BUTTONS ----------------
+
+        buttons = tk.Frame(
+            main,
+            bg="#eef2f7"
+        )
+
+        buttons.pack(
+            fill="x",
+            pady=(15, 0)
+        )
+
+        tk.Button(
+            buttons,
+            text=button_text,
+            command=button_command,
+            bg="#198754",
+            fg="white",
+            font=("Segoe UI", 10, "bold"),
+            relief="flat",
+            cursor="hand2"
+        ).pack(
+            side="left",
+            ipadx=15,
+            ipady=8,
+            padx=(0, 10)
+        )
+
+        tk.Button(
+            buttons,
+            text="Clear / Reset",
+            command=self.clear_form,
+            bg="#6c757d",
+            fg="white",
+            font=("Segoe UI", 10, "bold"),
+            relief="flat",
+            cursor="hand2"
+        ).pack(
+            side="left",
+            ipadx=15,
+            ipady=8
+        )
+
+    # ======================================================
+    # GET FORM VALUES
+    # ======================================================
+
+    def get_form_values(self):
+
+        data = {}
+
+        for key, widget in self.entries.items():
+
+            if key == "gender":
+
+                data[key] = self.gender_var.get().strip()
+
+            else:
+
+                data[key] = widget.get().strip()
+
+        return data
+
+    # ======================================================
+    # VALIDATE FORM
+    # ======================================================
+
+    def validate_form(self, data):
+
+        required = [
+            "player_name",
+            "age",
+            "gender",
+            "sport",
+            "category",
+            "phone",
+            "email",
+            "college",
+            "registration_date"
+        ]
+
+        for field in required:
+
+            if not data[field]:
+
+                messagebox.showwarning(
+                    "Validation",
+                    "Please fill all fields."
+                )
+
+                return False
+
+        if not valid_age(
+            data["age"]
+        ):
+
+            messagebox.showwarning(
+                "Validation",
+                "Age must be a number between 5 and 100."
+            )
+
+            return False
+
+        if not valid_phone(
+            data["phone"]
+        ):
+
+            messagebox.showwarning(
+                "Validation",
+                "Phone number must contain exactly 10 digits."
+            )
+
+            return False
+
+        if not valid_email(
+            data["email"]
+        ):
+
+            messagebox.showwarning(
+                "Validation",
+                "Please enter a valid email."
+            )
+
+            return False
+
+        # Date format validation
+        try:
+
+            date.fromisoformat(
+                data["registration_date"]
+            )
+
+        except ValueError:
+
+            messagebox.showwarning(
+                "Validation",
+                "Date must be in YYYY-MM-DD format."
+            )
+
+            return False
+
+        return True
+
+    # ======================================================
+    # ADD PLAYER
+    # ======================================================
+
+    def show_add(self):
+
+        self.create_form_page(
+            "Add Player Registration",
+            "Save Registration",
+            self.add_record
+        )
+
+    def add_record(self):
+
+        data = self.get_form_values()
+
+        if not self.validate_form(data):
+            return
+
+        conn = None
+        cursor = None
+
+        try:
+
+            conn = get_db_connection()
+
+            cursor = conn.cursor()
+
+            # INSERT
+            cursor.execute("""
+                INSERT INTO players
+                (
+                    player_name,
+                    age,
+                    gender,
+                    sport,
+                    category,
+                    phone,
+                    email,
+                    college,
+                    registration_date
+                )
+                VALUES
+                (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+            """, (
+                data["player_name"],
+                int(data["age"]),
+                data["gender"],
+                data["sport"],
+                data["category"],
+                data["phone"],
+                data["email"],
+                data["college"],
+                data["registration_date"]
+            ))
+
+            conn.commit()
+
+            messagebox.showinfo(
+                "Success",
+                "Player registered successfully."
+            )
+
+            self.clear_form()
+
+        except Error as e:
+
+            messagebox.showerror(
+                "Database Error",
+                str(e)
+            )
+
+        finally:
+
+            if cursor:
+                cursor.close()
+
+            if conn:
+                conn.close()
+
+    # ======================================================
+    # CLEAR / RESET
+    # ======================================================
+
+    def clear_form(self):
+
+        for key, widget in self.entries.items():
+
+            if key == "gender":
+
+                self.gender_var.set("")
+
+            elif isinstance(
+                widget,
+                ttk.Combobox
+            ):
+
+                widget.set("")
+
+            else:
+
+                widget.delete(
+                    0,
+                    tk.END
+                )
+
+        # Put current date again
+        if "registration_date" in self.entries:
+
+            self.entries[
+                "registration_date"
+            ].insert(
+                0,
+                date.today().strftime("%Y-%m-%d")
+            )
+
+        self.selected_id = None
+
+    # ======================================================
+    # VIEW PLAYERS
+    # ======================================================
+
+    def show_view(self):
+
+        self.clear_root()
+
+        self.root.configure(
+            bg="#eef2f7"
+        )
+
+        # HEADER
+        header = tk.Frame(
+            self.root,
+            bg="#17365d",
+            height=75
+        )
+
+        header.pack(
+            fill="x"
+        )
+
+        header.pack_propagate(False)
+
+        tk.Label(
+            header,
+            text="SPORTS MANAGEMENT SYSTEM",
+            font=("Segoe UI", 20, "bold"),
+            bg="#17365d",
+            fg="white"
+        ).pack(
+            side="left",
+            padx=25,
+            pady=18
+        )
+
+        tk.Button(
+            header,
+            text="Logout",
+            command=self.logout,
+            bg="#b02a37",
+            fg="white",
+            relief="flat"
+        ).pack(
+            side="right",
+            padx=25,
+            pady=20,
+            ipadx=10
+        )
+
+        self.create_navigation()
+
+        main = tk.Frame(
+            self.root,
+            bg="#eef2f7"
+        )
+
+        main.pack(
+            fill="both",
+            expand=True,
+            padx=25,
+            pady=25
+        )
+
+        tk.Label(
+            main,
+            text="View / Manage Players",
+            font=("Segoe UI", 22, "bold"),
+            bg="#eef2f7",
+            fg="#17365d"
+        ).pack(
+            anchor="w"
+        )
+
+        table_frame = tk.Frame(
+            main,
+            bg="white"
+        )
+
+        table_frame.pack(
+            fill="both",
+            expand=True,
+            pady=18
+        )
+
+        columns = (
+            "id",
+            "name",
+            "age",
+            "gender",
+            "sport",
+            "category",
+            "phone",
+            "email",
+            "college",
+            "date"
+        )
+
+        self.tree = ttk.Treeview(
+            table_frame,
+            columns=columns,
+            show="headings"
+        )
+
+        headings = [
+            ("id", "ID", 45),
+            ("name", "Player Name", 130),
+            ("age", "Age", 55),
+            ("gender", "Gender", 75),
+            ("sport", "Sport", 100),
+            ("category", "Category", 90),
+            ("phone", "Phone", 105),
+            ("email", "Email", 170),
+            ("college", "College", 170),
+            ("date", "Date", 100)
+        ]
+
+        for col, text, width in headings:
+
+            self.tree.heading(
+                col,
+                text=text
+            )
+
+            self.tree.column(
+                col,
+                width=width,
+                anchor="center"
+            )
+
+        yscroll = ttk.Scrollbar(
+            table_frame,
+            orient="vertical",
+            command=self.tree.yview
+        )
+
+        xscroll = ttk.Scrollbar(
+            table_frame,
+            orient="horizontal",
+            command=self.tree.xview
+        )
+
+        self.tree.configure(
+            yscrollcommand=yscroll.set,
+            xscrollcommand=xscroll.set
+        )
+
+        self.tree.pack(
+            side="top",
+            fill="both",
+            expand=True
+        )
+
+        yscroll.pack(
+            side="right",
+            fill="y"
+        )
+
+        xscroll.pack(
+            side="bottom",
+            fill="x"
+        )
+
+        # ACTIONS
+
+        actions = tk.Frame(
+            main,
+            bg="#eef2f7"
+        )
+
+        actions.pack(
+            fill="x"
+        )
+
+        tk.Button(
+            actions,
+            text="Update Selected",
+            command=self.update_selected,
+            bg="#0d6efd",
+            fg="white",
+            relief="flat"
+        ).pack(
+            side="left",
+            ipadx=12,
+            ipady=7,
+            padx=5
+        )
+
+        tk.Button(
+            actions,
+            text="Delete Selected",
+            command=self.delete_selected,
+            bg="#dc3545",
+            fg="white",
+            relief="flat"
+        ).pack(
+            side="left",
+            ipadx=12,
+            ipady=7,
+            padx=5
+        )
+
+        tk.Button(
+            actions,
+            text="Refresh",
+            command=self.load_records,
+            bg="#6c757d",
+            fg="white",
+            relief="flat"
+        ).pack(
+            side="left",
+            ipadx=12,
+            ipady=7,
+            padx=5
+        )
+
+        self.load_records()
+
+    # ======================================================
+    # LOAD PLAYERS
+    # ======================================================
+
+    def load_records(self):
+
+        for item in self.tree.get_children():
+
+            self.tree.delete(item)
+
+        conn = None
+        cursor = None
+
+        try:
+
+            conn = get_db_connection()
+
+            cursor = conn.cursor()
+
+            # SELECT
+            cursor.execute("""
+                SELECT
+                    id,
+                    player_name,
+                    age,
+                    gender,
+                    sport,
+                    category,
+                    phone,
+                    email,
+                    college,
+                    registration_date
+                FROM players
+                ORDER BY id DESC
+            """)
+
+            rows = cursor.fetchall()
+
+            for row in rows:
+
+                self.tree.insert(
+                    "",
+                    tk.END,
+                    values=row
+                )
+
+        except Error as e:
+
+            messagebox.showerror(
+                "Database Error",
+                str(e)
+            )
+
+        finally:
+
+            if cursor:
+                cursor.close()
+
+            if conn:
+                conn.close()
+
+    # ======================================================
+    # UPDATE PLAYER
+    # ======================================================
+
+    def update_selected(self):
+
+        selected = self.tree.selection()
+
+        if not selected:
+
+            messagebox.showwarning(
+                "Update",
+                "Please select a player."
+            )
+
+            return
+
+        values = self.tree.item(
+            selected[0],
+            "values"
+        )
+
+        self.selected_id = values[0]
+
+        self.show_update_form(
+            values
+        )
+
+    def show_update_form(self, values):
+
+        self.create_form_page(
+            "Update Player Registration",
+            "Update Record",
+            self.update_record
+        )
+
+        mapping = [
+            ("player_name", values[1]),
+            ("age", values[2]),
+            ("gender", values[3]),
+            ("sport", values[4]),
+            ("category", values[5]),
+            ("phone", values[6]),
+            ("email", values[7]),
+            ("college", values[8]),
+            ("registration_date", values[9])
+        ]
+
+        for key, value in mapping:
+
+            if key == "gender":
+
+                self.gender_var.set(
+                    value
+                )
+
+            else:
+
+                widget = self.entries[key]
+
+                if isinstance(
+                    widget,
+                    ttk.Combobox
+                ):
+
+                    widget.set(
+                        value
+                    )
+
+                else:
+
+                    widget.insert(
+                        0,
+                        value
+                    )
+
+    def update_record(self):
+
+        if not self.selected_id:
+
+            messagebox.showwarning(
+                "Update",
+                "No player selected."
+            )
+
+            return
+
+        data = self.get_form_values()
+
+        if not self.validate_form(data):
+            return
+
+        conn = None
+        cursor = None
+
+        try:
+
+            conn = get_db_connection()
+
+            cursor = conn.cursor()
+
+            # UPDATE + WHERE
+            cursor.execute("""
+                UPDATE players
+                SET
+                    player_name=%s,
+                    age=%s,
+                    gender=%s,
+                    sport=%s,
+                    category=%s,
+                    phone=%s,
+                    email=%s,
+                    college=%s,
+                    registration_date=%s
+                WHERE id=%s
+            """, (
+                data["player_name"],
+                int(data["age"]),
+                data["gender"],
+                data["sport"],
+                data["category"],
+                data["phone"],
+                data["email"],
+                data["college"],
+                data["registration_date"],
+                self.selected_id
+            ))
+
+            conn.commit()
+
+            messagebox.showinfo(
+                "Success",
+                "Player record updated successfully."
+            )
+
+            self.show_view()
+
+        except Error as e:
+
+            messagebox.showerror(
+                "Database Error",
+                str(e)
+            )
+
+        finally:
+
+            if cursor:
+                cursor.close()
+
+            if conn:
+                conn.close()
+
+    # ======================================================
+    # DELETE PLAYER
+    # ======================================================
+
+    def delete_selected(self):
+
+        selected = self.tree.selection()
+
+        if not selected:
+
+            messagebox.showwarning(
+                "Delete",
+                "Please select a player."
+            )
+
+            return
+
+        values = self.tree.item(
+            selected[0],
+            "values"
+        )
+
+        player_id = values[0]
+        player_name = values[1]
+
+        confirm = messagebox.askyesno(
+            "Confirm Delete",
+            f"Are you sure you want to delete "
+            f"'{player_name}'?"
+        )
+
+        if not confirm:
+            return
+
+        conn = None
+        cursor = None
+
+        try:
+
+            conn = get_db_connection()
+
+            cursor = conn.cursor()
+
+            # DELETE + WHERE
+            cursor.execute(
+                "DELETE FROM players WHERE id=%s",
+                (player_id,)
+            )
+
+            conn.commit()
+
+            messagebox.showinfo(
+                "Deleted",
+                "Player deleted successfully."
+            )
+
+            self.load_records()
+
+        except Error as e:
+
+            messagebox.showerror(
+                "Database Error",
+                str(e)
+            )
+
+        finally:
+
+            if cursor:
+                cursor.close()
+
+            if conn:
+                conn.close()
+
+    # ======================================================
+    # SEARCH
+    # ======================================================
+
+    def show_search(self):
+
+        self.clear_root()
+
+        self.root.configure(
+            bg="#eef2f7"
+        )
+
+        # HEADER
+
+        header = tk.Frame(
+            self.root,
+            bg="#17365d",
+            height=75
+        )
+
+        header.pack(
+            fill="x"
+        )
+
+        header.pack_propagate(False)
+
+        tk.Label(
+            header,
+            text="SPORTS MANAGEMENT SYSTEM",
+            font=("Segoe UI", 20, "bold"),
+            bg="#17365d",
+            fg="white"
+        ).pack(
+            side="left",
+            padx=25,
+            pady=18
+        )
+
+        tk.Button(
+            header,
+            text="Logout",
+            command=self.logout,
+            bg="#b02a37",
+            fg="white",
+            relief="flat"
+        ).pack(
+            side="right",
+            padx=25,
+            pady=20,
+            ipadx=10
+        )
+
+        self.create_navigation()
+
+        main = tk.Frame(
+            self.root,
+            bg="#eef2f7"
+        )
+
+        main.pack(
+            fill="both",
+            expand=True,
+            padx=25,
+            pady=25
+        )
+
+        tk.Label(
+            main,
+            text="Search Players",
+            font=("Segoe UI", 22, "bold"),
+            bg="#eef2f7",
+            fg="#17365d"
+        ).pack(
+            anchor="w"
+        )
+
+        search_bar = tk.Frame(
+            main,
+            bg="white",
+            bd=1,
+            relief="solid"
+        )
+
+        search_bar.pack(
+            fill="x",
+            pady=18,
+            ipady=8
+        )
+
+        tk.Label(
+            search_bar,
+            text="Search By:",
+            font=("Segoe UI", 10, "bold"),
+            bg="white"
+        ).pack(
+            side="left",
+            padx=(20, 8)
+        )
+
+        self.search_field = ttk.Combobox(
+            search_bar,
+            values=[
+                "Player Name",
+                "Sport",
+                "Category",
+                "College",
+                "Phone",
+                "Email"
+            ],
+            state="readonly",
+            width=18
+        )
+
+        self.search_field.set(
+            "Player Name"
+        )
+
+        self.search_field.pack(
+            side="left",
+            padx=5
+        )
+
+        self.search_entry = tk.Entry(
+            search_bar,
+            font=("Segoe UI", 10),
+            relief="solid"
+        )
+
+        self.search_entry.pack(
+            side="left",
+            padx=8,
+            ipady=6,
+            fill="x",
+            expand=True
+        )
+
+        tk.Button(
+            search_bar,
+            text="Search",
+            command=self.perform_search,
+            bg="#17365d",
+            fg="white",
+            relief="flat"
+        ).pack(
+            side="left",
+            padx=8,
+            ipadx=12,
+            ipady=5
+        )
+
+        tk.Button(
+            search_bar,
+            text="Reset",
+            command=self.reset_search,
+            bg="#6c757d",
+            fg="white",
+            relief="flat"
+        ).pack(
+            side="left",
+            padx=(0, 15),
+            ipadx=10,
+            ipady=5
+        )
+
+        # TABLE
+
+        table_frame = tk.Frame(
+            main,
+            bg="white"
+        )
+
+        table_frame.pack(
+            fill="both",
+            expand=True
+        )
+
+        columns = (
+            "id",
+            "name",
+            "age",
+            "gender",
+            "sport",
+            "category",
+            "phone",
+            "email",
+            "college",
+            "date"
+        )
+
+        self.search_tree = ttk.Treeview(
+            table_frame,
+            columns=columns,
+            show="headings"
+        )
+
+        headings = [
+            ("id", "ID", 45),
+            ("name", "Player Name", 130),
+            ("age", "Age", 55),
+            ("gender", "Gender", 75),
+            ("sport", "Sport", 100),
+            ("category", "Category", 90),
+            ("phone", "Phone", 105),
+            ("email", "Email", 170),
+            ("college", "College", 170),
+            ("date", "Date", 100)
+        ]
+
+        for col, text, width in headings:
+
+            self.search_tree.heading(
+                col,
+                text=text
+            )
+
+            self.search_tree.column(
+                col,
+                width=width,
+                anchor="center"
+            )
+
+        self.search_tree.pack(
+            fill="both",
+            expand=True
+        )
+
+        self.load_search_records()
+
+    # ======================================================
+    # SEARCH RECORDS
+    # ======================================================
+
+    def load_search_records(
+        self,
+        search_text=""
+    ):
+
+        for item in self.search_tree.get_children():
+
+            self.search_tree.delete(item)
+
+        conn = None
+        cursor = None
+
+        try:
+
+            conn = get_db_connection()
+
+            cursor = conn.cursor()
+
+            if not search_text:
+
+                cursor.execute("""
+                    SELECT
+                        id,
+                        player_name,
+                        age,
+                        gender,
+                        sport,
+                        category,
+                        phone,
+                        email,
+                        college,
+                        registration_date
+                    FROM players
+                    ORDER BY id DESC
+                """)
+
+            else:
+
+                field_map = {
+                    "Player Name": "player_name",
+                    "Sport": "sport",
+                    "Category": "category",
+                    "College": "college",
+                    "Phone": "phone",
+                    "Email": "email"
+                }
+
+                field = field_map[
+                    self.search_field.get()
+                ]
+
+                # SELECT + WHERE + LIKE
+                query = f"""
+                    SELECT
+                        id,
+                        player_name,
+                        age,
+                        gender,
+                        sport,
+                        category,
+                        phone,
+                        email,
+                        college,
+                        registration_date
+                    FROM players
+                    WHERE {field} LIKE %s
+                    ORDER BY id DESC
+                """
+
+                cursor.execute(
+                    query,
+                    (f"%{search_text}%",)
+                )
+
+            rows = cursor.fetchall()
+
+            for row in rows:
+
+                self.search_tree.insert(
+                    "",
+                    tk.END,
+                    values=row
+                )
+
+        except Error as e:
+
+            messagebox.showerror(
+                "Database Error",
+                str(e)
+            )
+
+        finally:
+
+            if cursor:
+                cursor.close()
+
+            if conn:
+                conn.close()
+
+    def perform_search(self):
+
+        text = self.search_entry.get().strip()
+
+        if not text:
+
+            messagebox.showwarning(
+                "Search",
+                "Please enter something to search."
+            )
+
+            return
+
+        self.load_search_records(
+            text
+        )
+
+    def reset_search(self):
+
+        self.search_entry.delete(
+            0,
+            tk.END
+        )
+
+        self.search_field.set(
+            "Player Name"
+        )
+
+        self.load_search_records()
+
+    # ======================================================
+    # LOGOUT
+    # ======================================================
+
+    def logout(self):
+
+        confirm = messagebox.askyesno(
+            "Logout",
+            "Are you sure you want to logout?"
+        )
+
+        if confirm:
+
+            self.show_login()
+
+
+# ==========================================================
+# PROGRAM START
+# ==========================================================
+
+if __name__ == "__main__":
+
+    root = tk.Tk()
+
+    app = SportsManagementSystem(
+        root
+    )
+
+    root.mainloop()
